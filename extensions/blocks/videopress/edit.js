@@ -26,7 +26,7 @@ import {
 import { Component, createRef, Fragment } from '@wordpress/element';
 import { __, _x, sprintf } from '@wordpress/i18n';
 import classnames from 'classnames';
-import { get } from 'lodash';
+import { get, indexOf } from 'lodash';
 
 /**
  * Internal dependencies
@@ -52,6 +52,7 @@ const VideoPressEdit = CoreVideoEdit =>
 				isFetchingMedia: false,
 				fallback: false,
 				interactive: false,
+				rating: null,
 			};
 			this.posterImageButton = createRef();
 		}
@@ -170,6 +171,16 @@ const VideoPressEdit = CoreVideoEdit =>
 				: null;
 		};
 
+		onChangeRating = rating => {
+			if ( -1 === indexOf( [ 'G', 'PG-13', 'R-17', 'X-18' ], rating ) ) {
+				return;
+			}
+
+			// todo: request to set the rating
+
+			this.setState( { rating: rating } );
+		};
+
 		render() {
 			const {
 				attributes,
@@ -181,10 +192,15 @@ const VideoPressEdit = CoreVideoEdit =>
 				preview,
 				setAttributes,
 			} = this.props;
-			const { fallback, isFetchingMedia, interactive } = this.state;
+			const { fallback, isFetchingMedia, interactive, rating } = this.state;
 			const { autoplay, caption, controls, loop, muted, poster, preload } = attributes;
 
 			const videoPosterDescription = `video-block__poster-image-description-${ instanceId }`;
+
+			// temp: simulate loading rating
+			if ( null === rating ) {
+				setTimeout( () => this.setState( { rating: 'G' } ), 15000 );
+			}
 
 			const blockSettings = (
 				<Fragment>
@@ -268,6 +284,32 @@ const VideoPressEdit = CoreVideoEdit =>
 									) }
 								</BaseControl>
 							</MediaUploadCheck>
+						</PanelBody>
+						<PanelBody title={ __( 'Video File Settings', 'jetpack' ) }>
+							<SelectControl
+								label={ __( 'Rating', 'jetpack' ) }
+								value={ rating }
+								disabled={ null === rating }
+								options={ [
+									{
+										label: __( 'G', 'jetpack' ),
+										value: 'G',
+									},
+									{
+										label: __( 'PG-13', 'jetpack' ),
+										value: 'PG-13',
+									},
+									{
+										label: __( 'R', 'jetpack' ),
+										value: 'R-17',
+									},
+									{
+										label: __( 'X', 'jetpack' ),
+										value: 'X-18',
+									},
+								] }
+								onChange={ this.onChangeRating }
+							/>
 						</PanelBody>
 					</InspectorControls>
 				</Fragment>
