@@ -53,6 +53,7 @@ const VideoPressEdit = CoreVideoEdit =>
 				fallback: false,
 				interactive: false,
 				rating: null,
+				lastRequestedMediaId: null,
 			};
 			this.posterImageButton = createRef();
 		}
@@ -77,18 +78,31 @@ const VideoPressEdit = CoreVideoEdit =>
 			this.setState( { interactive: true } );
 		};
 
-		componentDidMount() {
+		async componentDidMount() {
 			const { guid } = this.props.attributes;
 			if ( ! guid ) {
-				this.setGuid();
+				await this.setGuid();
 			}
+
+			this.setRating();
 		}
 
-		componentDidUpdate( prevProps ) {
+		setRating = async () => {
+			const id = get( this.props, 'attributes.id' );
+			const media = await this.requestMedia( id );
+			const rating = get( media, 'media_details.videopress.rating' );
+
+			if ( rating ) {
+				this.setState( { rating } );
+			}
+		};
+
+		async componentDidUpdate( prevProps ) {
 			const { attributes, invalidateCachedEmbedPreview, url } = this.props;
 
 			if ( attributes.id !== prevProps.attributes.id ) {
-				this.setGuid();
+				await this.setGuid();
+				this.setRating();
 			}
 
 			if ( url && url !== prevProps.url ) {
@@ -115,17 +129,12 @@ const VideoPressEdit = CoreVideoEdit =>
 			}
 
 			try {
-				this.setState( { isFetchingMedia: true } );
-				const media = await apiFetch( { path: `/wp/v2/media/${ id }` } );
-				this.setState( { isFetchingMedia: false } );
+				const media = await this.requestMedia( id );
 
-				const { id: currentId } = this.props.attributes;
-				if ( id !== currentId ) {
-					// Video was changed in the editor while fetching data for the previous video;
+				if ( null === media ) {
 					return;
 				}
 
-				this.setState( { media } );
 				const guid = get( media, 'jetpack_videopress_guid' );
 				if ( guid ) {
 					setAttributes( { guid } );
@@ -136,6 +145,29 @@ const VideoPressEdit = CoreVideoEdit =>
 				this.setState( { isFetchingMedia: false } );
 				this.fallbackToCore();
 			}
+		};
+
+		requestMedia = async id => {
+			if ( ! id ) {
+				return null;
+			}
+
+			if ( null !== this.state.media && this.state.lastRequestedMediaId === id ) {
+				return this.state.media;
+			}
+
+			this.setState( { isFetchingMedia: true } );
+			const media = await apiFetch( { path: `/wp/v2/media/${ id }` } );
+			this.setState( { isFetchingMedia: false } );
+
+			const { id: currentId } = this.props.attributes;
+			if ( id !== currentId ) {
+				// Video was changed in the editor while fetching data for the previous video;
+				return null;
+			}
+
+			this.setState( { media, lastRequestedMediaId: id } );
+			return media;
 		};
 
 		switchToEditing = () => {
@@ -196,11 +228,6 @@ const VideoPressEdit = CoreVideoEdit =>
 			const { autoplay, caption, controls, loop, muted, poster, preload } = attributes;
 
 			const videoPosterDescription = `video-block__poster-image-description-${ instanceId }`;
-
-			// temp: simulate loading rating
-			if ( null === rating ) {
-				setTimeout( () => this.setState( { rating: 'G' } ), 15000 );
-			}
 
 			const blockSettings = (
 				<Fragment>
@@ -289,7 +316,7 @@ const VideoPressEdit = CoreVideoEdit =>
 							<SelectControl
 								label={ __( 'Rating', 'jetpack' ) }
 								value={ rating }
-								disabled={ null === rating }
+								disabled={ isFetchingMedia }
 								options={ [
 									{
 										label: __( 'G', 'jetpack' ),
