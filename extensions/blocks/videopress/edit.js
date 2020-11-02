@@ -10,6 +10,7 @@ import {
 	PanelBody,
 	SandBox,
 	SelectControl,
+	Spinner,
 	ToggleControl,
 	Toolbar,
 } from '@wordpress/components';
@@ -313,6 +314,9 @@ const VideoPressEdit = CoreVideoEdit =>
 							</MediaUploadCheck>
 						</PanelBody>
 						<PanelBody title={ __( 'Video File Settings', 'jetpack' ) }>
+							<div className="video-file-spinner-placeholder">
+								{ isFetchingMedia && <Spinner /> }
+							</div>
 							<SelectControl
 								label={ __( 'Rating', 'jetpack' ) }
 								value={ rating }
